@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Choropleth Maps of Germany</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        #map1, #map2 {
+            height: 400px; /* Example height */
+            width: 49%; /* Half width to display side by side */
+            display: inline-block;
+        }
+    </style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+    <div id="map1"></div>
+    <div id="map2"></div>
+    <script>
+        var map1 = L.map('map1').setView([51.1657, 10.4515], 6);
+        var map2 = L.map('map2').setView([51.1657, 10.4515], 6);
+    
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 18,
+        }).addTo(map1).addTo(map2);
+    
+        // Load and display GeoJSON on both maps
+        fetch('DE.geojson')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(geojsonData) {
+                L.geoJson(geojsonData, {
+                    // Define styles or any options here
+                }).addTo(map1);
+                L.geoJson(geojsonData, {
+                    // Define styles or any options here
+                }).addTo(map2);
+            });
+    </script>
+    
+</body>
+</html>

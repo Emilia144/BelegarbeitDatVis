@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="d3.v7.min.js"></script>
+    <style>
+        svg {
+            border: solid 1px gray;
+        }
+        .country {
+            fill: gray;
+            stroke: white;
+            stroke-width: .5;
+        }
+    </style>
+</head>
+<body>
+<script>
+    const width = 500;
+    const height = 500;
+    const FILE = "world.json";
+
+    const svg = d3.select("body").append("svg")
+            .attr("width", width).attr("height", height);
+
+    // choose a projection
+    const projection = d3.geoMercator();
+
+    // create a path generator function for the projection
+    const geoPath = d3.geoPath()
+            .projection(projection);
+
+    const map = {};
+
+    d3.json('../Data/' + FILE)
+            .then(function(shapes) {
+                map.features = shapes.features;
+                draw();
+            });
+
+    const what_we_want = ["Germany", "Czech Republic", "Austria"]
+
+    function draw() {
+        svg.selectAll("path.country")
+            .data(map.features)
+            .enter()
+            .append("path")
+            .filter(d => what_we_want.includes(d.properties.name))
+            .attr("class","country")
+            .attr('d', geoPath)
+            .attr("transform", "scale (7.5) translate (-480,-60)")
+    }
+</script>
+
+</body>
+</html>
