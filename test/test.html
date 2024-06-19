@@ -1,37 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Leaflet Map Example</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
+    <meta charset="UTF-8">
+    <title>Choropleth Karte der Bundesländer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        #map {
-            height: 100vh; /* 100% of the viewport height */
-            width: 100vw; /* 100% of the viewport width */
+        svg {
+            border: solid 1px gray;
+        }
+        .country {
+            stroke: white;
+            stroke-width: .05;
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var map = L.map('map').setView([51.505, -0.09], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',                    maxZoom: 18,
-            }).addTo(map);
-            var marker = L.marker([51.5, -0.09]).addTo(map);
-            function onMapClick(e) {
-                alert("You clicked the map at " + e.latlng);
-            }
-            
-            map.on('click', onMapClick);
+<script>
+    const width = 800;
+    const height = 800;
+    const FILE = "bundeslaender.geo.json";
+
+    const svg = d3.select("body").append("svg")
+            .attr("width", width).attr("height", height);
+
+    // choose a projection
+    const projection = d3.geoMercator()
+        .scale(3000)
+        .center([10, 51.35]);
+
+    // create a path generator function for the projection
+    const geoPath = d3.geoPath()
+            .projection(projection);
+
+    const map = {};
+
+    // Temperature data for each Bundesland
+    const temperatures = {
+        "Schleswig-Holstein": 15,
+        "Hamburg": 18,
+        "Niedersachsen": 20,
+        "Bremen": 17,
+        "Nordrhein-Westfalen": 22,
+        "Hessen": 21,
+        "Rheinland-Pfalz": 23,
+        "Baden-Württemberg": 24,
+        "Bayern": 25,
+        "Saarland": 19,
+        "Berlin": 16,
+        "Brandenburg": 19,
+        "Mecklenburg-Vorpommern": 14,
+        "Sachsen": 20,
+        "Sachsen-Anhalt": 18,
+        "Thüringen": 17
+    };
+
+    // Color scale based on temperature
+    const colorScale = d3.scaleSequential()
+        .domain([14, 25]) // Adjust domain based on your data range
+        .interpolator(d3.interpolateReds);
+
+    d3.json(FILE)
+        .then(function(shapes) {
+            map.features = shapes.features;
+            draw();
         });
 
-    </script>
+    function draw() {
+        svg.selectAll("path.country")
+            .data(map.features)
+            .enter()
+            .append("path")
+            .attr("class", "country")
+            .attr('d', geoPath)
+            .attr("transform", "scale (1.0) translate (0,0)")
+            .attr("fill", function(d) {
+                // Get the temperature for the current Bundesland
+                const name = d.properties.name;
+                const temperature = temperatures[name] || 0;
+                return colorScale(temperature);
+            });
+
+        // Add legend
+        const legend = svg.append("g")
+            .attr("class", "legend")
+            .attr("transform", `translate(${width - 150}, 30)`);
+
+        const legendScale = d3.scaleLinear()
+            .domain(colorScale.domain())
+            .range([200, 0]);
+
+        const legendAxis = d3.axisRight(legendScale)
+            .ticks(6);
+
+        legend.selectAll("rect")
+            .data(d3.range(14, 26)) // Range of temperatures
+            .enter()
+            .append("rect")
+            .attr("y", d => legendScale(d))
+            .attr("width", 20)
+            .attr("height", (200 / 12)) // Scale height for each temperature step
+            .attr("fill", d => colorScale(d));
+
+        legend.append("g")
+            .attr("transform", `translate(20, 0)`)
+            .call(legendAxis);
+    }
+
+</script>
 </body>
 </html>

@@ -33,13 +33,13 @@
 
     const map = {};
 
-    d3.json('../Data/' + FILE)
+    d3.json( FILE)
             .then(function(shapes) {
                 map.features = shapes.features;
                 draw();
             });
 
-    const what_we_want = ["Germany", "Czech Republic", "Austria"]
+    const what_we_want = ["Germany"]
 
     function draw() {
         svg.selectAll("path.country")
