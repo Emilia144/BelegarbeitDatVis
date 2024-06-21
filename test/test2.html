@@ -1,47 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Choropleth Maps of Germany</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <meta charset="UTF-8">
+    <title>Choropleth Karte der Bundesländer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        #map1, #map2 {
-            height: 400px; /* Example height */
-            width: 49%; /* Half width to display side by side */
-            display: inline-block;
+        svg {
+            border: solid 1px gray;
+        }
+        .country {
+            stroke: white;
+            stroke-width: .5;
+        }
+        .dropdown {
+            margin-bottom: 20px;
         }
     </style>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
-    <div id="map1"></div>
-    <div id="map2"></div>
+    <div class="dropdown">
+        <label for="yearSelect">Wählen Sie ein Jahr: </label>
+        <select id="yearSelect">
+            <!-- Die Jahre werden dynamisch hinzugefügt -->
+        </select>
+    </div>
+    <div id="map"></div>
     <script>
-        var map1 = L.map('map1').setView([51.1657, 10.4515], 6);
-        var map2 = L.map('map2').setView([51.1657, 10.4515], 6);
-    
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 18,
-        }).addTo(map1).addTo(map2);
-    
-        // Load and display GeoJSON on both maps
-        fetch('DE.geojson')
-            .then(function(response) {
-                return response.json();
-            })
-            .then(function(geojsonData) {
-                L.geoJson(geojsonData, {
-                    // Define styles or any options here
-                }).addTo(map1);
-                L.geoJson(geojsonData, {
-                    // Define styles or any options here
-                }).addTo(map2);
+        const width = 800;
+        const height = 800;
+        const geoJSONFile = "bundeslaender.geo.json";
+        const csvFile = "temperaturen_ohne_sec.csv";
+
+        // Initiale D3 Setup
+        const svg = d3.select("#map").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const path = d3.geoPath();
+        const color = d3.scaleQuantize([5, 10], d3.schemeBlues[9]);
+
+        let bundeslaenderData;
+        let temperaturData;
+
+        // Funktion zum Zeichnen der Karte
+        function drawMap(year) {
+            console.log(`Zeichne Karte für das Jahr: ${year}`);
+
+            const dataByYear = temperaturData.find(d => d.year == year);
+            const bundeslandToTemp = new Map();
+
+            if (dataByYear) {
+                console.log(`Daten für Jahr ${year} gefunden:`, dataByYear);
+                for (const [key, value] of Object.entries(dataByYear)) {
+                    if (key !== "year") {
+                        bundeslandToTemp.set(key, +value);
+                    }
+                }
+            } else {
+                console.log(`Keine Daten für das Jahr ${year} gefunden.`);
+            }
+
+            svg.selectAll("path")
+                .data(bundeslaenderData.features)
+                .join("path")
+                .attr("d", path)
+                .attr("class", "country")
+                .attr("fill", d => {
+                    const temp = bundeslandToTemp.get(d.properties.NAME_1);
+                    console.log(`Temperatur für ${d.properties.NAME_1}: ${temp}`);
+                    return temp ? color(temp) : "#ccc";
+                })
+                .append("title")
+                .text(d => `${d.properties.NAME_1}: ${bundeslandToTemp.get(d.properties.NAME_1) || "Keine Daten"}°C`);
+        }
+         // GeoJSON Daten laden und initiale Karte zeichnen
+         d3.json(geoJSONFile).then(data => {
+            console.log("Geladene GeoJSON-Daten:", data);
+            bundeslaenderData = data;
+        });
+        
+        // CSV Daten laden
+        const semicolonParser = d3.dsvFormat(";");
+        d3.text(csvFile).then(text => {
+            const data = semicolonParser.parse(text);
+            
+            // Debugging: Überprüfen der geladenen Daten
+            console.log("Geladene CSV-Daten:", data);
+
+            temperaturData = data.map(d => {
+                // Debugging: Überprüfen der Konvertierung jedes Jahres
+                console.log("Vorherige year-Werte:", d.Jahr);
+                d.year = +d.Jahr;  // Umwandeln des "Jahr" Wertes in eine Zahl
+                console.log("Konvertierte year-Werte:", d.year);
+                return d;
             });
+
+            // Debugging: Überprüfen der verarbeiteten Temperaturdaten
+            console.log("Verarbeitete Temperaturdaten:", temperaturData);
+
+            // Dropdown mit Jahren befüllen
+            const years = [...new Set(temperaturData.map(d => d.year))];
+            console.log("Verfügbare Jahre:", years); // Debugging: Überprüfen der Jahre
+            const dropdown = d3.select("#yearSelect");
+
+            years.forEach(year => {
+                console.log(`Füge Jahr zum Dropdown hinzu: ${year}`);
+                dropdown.append("option").attr("value", year).text(year);
+            });
+
+            // Event Listener für Dropdown
+            dropdown.on("change", function () {
+                const selectedYear = this.value;
+                console.log(`Ausgewähltes Jahr: ${selectedYear}`);
+                drawMap(selectedYear);
+            });
+
+            // Standardmäßig die Karte für das erste Jahr anzeigen
+            if (years.length > 0) {
+                console.log(`Zeige standardmäßig die Karte für das Jahr: ${years[0]}`);
+                drawMap(years[0]);
+            } else {
+                console.log("Keine Jahre im Dropdown verfügbar.");
+            }
+        });
+
+       
     </script>
-    
 </body>
 </html>
