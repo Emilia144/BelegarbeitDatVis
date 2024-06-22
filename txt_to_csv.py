@@ -80,7 +80,7 @@ def remove_sec(file_path, output_path):
 
     # Speichern der aktualisierten CSV-Datei
     try:
-        df.to_csv(output_path, index=False, sep=';')
+        df.to_csv(output_path, index=False)
         print(f"Die modifizierte CSV-Datei wurde erfolgreich unter {output_path} gespeichert.")
     except Exception as e:
         print(f"Fehler beim Speichern der Datei {output_path}: {e}")
@@ -89,21 +89,21 @@ def remove_sec(file_path, output_path):
 
 
 def sortcsv():
-    import pandas as pd
 
     # Pfad zur Eingabedatei und zur Ausgabedatei
-    input_file_path = 'test/temperaturen_ohne_sec.csv'  # Ersetze durch den tatsächlichen Pfad der Eingabedatei
-    output_file_path = 'newtemperaturen.csv'  # Ersetze durch den gewünschten Pfad der Ausgabedatei
+    input_file_path = 'sonnenschein_dauer.csv'  # Ersetze durch den tatsächlichen Pfad der Eingabedatei
+    output_file_path = 'cleanSonnenscheinDauer.csv'  # Ersetze durch den gewünschten Pfad der Ausgabedatei
+
 
     # Spalten, die entfernt werden sollen (ersetze durch die gewünschten Spalten)
     columns_to_remove = ['Thueringen/Sachsen-Anhalt', 'Deutschland']
 
     # Spalte, die dupliziert und umbenannt werden soll
-    column_to_duplicate = 'Niedersachsen/Hamburg/Bremen'
+    column_to_duplicate = 'Hamburg'
     new_column_name = 'Bremen'
 
     # CSV-Datei einlesen
-    df = pd.read_csv(input_file_path, delimiter=";")
+    df = pd.read_csv(input_file_path)
 
     # Ausgewählte Spalten entfernen
     df.drop(columns=columns_to_remove, inplace=True, errors='ignore')
@@ -112,13 +112,13 @@ def sortcsv():
     df[new_column_name] = df[column_to_duplicate]
 
     # Spalten alphabetisch sortieren
-    sorted_columns = sorted(df.columns)
+    #sorted_columns = sorted(df.columns)
 
     # DataFrame mit sortierten Spalten neu anordnen
-    sorted_df = df[sorted_columns]
+   # sorted_df = df[sorted_columns]
 
     # Sortierte CSV-Datei speichern
-    sorted_df.to_csv(output_file_path, index=False)
+    df.to_csv(output_file_path, index=False)
 
     print(f"Die CSV-Datei wurde erfolgreich unter '{output_file_path}' gespeichert.")
 
@@ -142,4 +142,4 @@ def reorganize_csv(file_path, output_path):
 
 
 if __name__ == "__main__":
-    reorganize_csv("newtemperaturen.csv", "tempsordered")
+    reorganize_csv("cleanSonnenscheinDauer.csv", "cleanSonnenscheinDauer.csv")
