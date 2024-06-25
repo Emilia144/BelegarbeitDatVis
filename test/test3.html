@@ -100,7 +100,8 @@
     const temperaturFile = "CSVDatenFertig/cleanTemperaturen.csv";
     const niederschlagFile = "CSVDatenFertig/cleanNiederschlag.csv";
     const sonnenscheindauerFile = "CSVDatenFertig/cleanSonnenscheinDauer.csv";
-
+    data_1 =0; 
+    data_2 =0;
 
     // Setup für die Karten
     function setupMap(mapId, yearSelectId, dataTypeSelectId) {
@@ -144,7 +145,6 @@
         // Funktion zum Zeichnen der Karte
         function drawMap(year, dataType, data, geoData, mapId) {
             console.log(`Zeichne Karte für Jahr: ${year} und Datentyp: ${dataType}`);
-
             let color;
             if (dataType === 'temperatur') {
                 console.log("Farbskala für Temperatur ausgewählt.");
@@ -161,7 +161,7 @@
             console.log("Daten für das ausgewählte Jahr:", dataByYear);
 
             const bundeslandToValue = new Map();
-            
+             value2 =0;
             if (dataByYear) {
                 for (const [key, value] of Object.entries(dataByYear)) {
                     if (key !== "year") {
@@ -170,7 +170,11 @@
                     }
                 }
             }
-
+            if (mapId == "#map1"){
+                data_1 = bundeslandToValue;
+            } else if  (mapId == '#map2'){
+                data_2 = bundeslandToValue;
+            }
             svg.selectAll("path")
                 .data(geoData.features)
                 .join("path")
@@ -185,8 +189,12 @@
                 .on("mouseover", function(event, d) {
                     const bundeslandName = d.properties.name;
                     const value = bundeslandToValue.get(bundeslandName);
-                    
-                    
+                    console.log(bundeslandName)
+                    if (mapId == "#map1"){
+                        value2 = data_2.get(bundeslandName);
+                    } else if (mapId == "#map2"){
+                        value2 = data_1.get(bundeslandName);
+                    }
                     d3.select(this)
                         .style("stroke", "black")  
                         .style("stroke-width", ".5");
@@ -196,7 +204,7 @@
                         .style("left", `${event.pageX + 5}px`)
                         .style("top", `${event.pageY - 28}px`)
                         .style("display", "inline-block")
-                        .html(`<strong>${bundeslandName}</strong><br/>Wert: ${value !== undefined ? value : "Keine Daten"}`);
+                        .html(`<strong>${bundeslandName}</strong><br/>Wert: ${value !== undefined ? value : "Keine Daten"}<br/><a>Andere Karte: <a/>${value2}`);
                     
                    
                 
@@ -242,7 +250,7 @@
                         console.log(`Jahr hinzugefügt: ${year}`);
                     });
                 }
-
+                
                 drawMap(year, dataType, data, geoData, mapId);
             });
         }
