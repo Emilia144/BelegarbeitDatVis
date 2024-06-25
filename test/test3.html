@@ -2,179 +2,276 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Choropleth Karte der Bundesländer</title>
+    <title>Doppelte Choropleth-Karten</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
+            flex-direction: row;
             height: 100vh;
             margin: 0;
         }
-        #map {
+        .map-container {
+            
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            width: 50%;
+            padding: 20px;
+        }
+        #map1, #map2 {
             display: flex;
             justify-content: center;
             align-items: center;
         }
         svg {
-            border: solid 1px gray;
+            
             max-width: 100%;
             max-height: 100%;
-        }
-        .country {
-            stroke: white;
-            stroke-width: .5;
         }
         .dropdown {
             margin-bottom: 20px;
         }
+        .country {
+            stroke: none;
+        }
+        .legend {
+            width: 200px;
+            height: 300px;
+            margin-left: 20px;
+            border: solid 1px gray;
+            padding: 10px;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #000;
+            padding: 5px;
+            display: none;
+            pointer-events: none;
+        }
+
     </style>
 </head>
 <body>
-    <div class="dropdown">
-        <label for="yearSelect">Wählen Sie ein Jahr: </label>
-        <select id="yearSelect">
-            <!-- Die Jahre werden dynamisch hinzugefügt -->
-        </select>
+    <!-- Erste Kartenhälfte -->
+    <div class="map-container">
+        <div class="dropdown">
+            <label for="yearSelect1">Wählen Sie ein Jahr: </label>
+            <select id="yearSelect1">
+                <!-- Die Jahre werden dynamisch hinzugefügt -->
+                
+            </select>
+            <label for="dataTypeSelect1">Wählen Sie einen Datentyp: </label>
+            <select id="dataTypeSelect1">
+                <option value="temperatur">Temperatur</option>
+                <option value="niederschlag">Niederschlag</option>
+                <option value="sonnenscheindauer">Sonnenscheindauer</option>
+            </select>
+        </div>
+        <div id="map1"></div>
+        <div class="tooltip" id="tooltip1"></div>
     </div>
-    <div id="map"></div>
-    <script>
-        const width = 800;
-        const height = 800;
-        const geoJSONFile = "bundeslaender.geo.json";
-        const csvFile = "CSVDatenFertig/cleanTemperaturen.csv";
+    <!-- Zweite Kartenhälfte -->
+    <div class="map-container">
+        <div class="dropdown">
+            <label for="yearSelect2">Wählen Sie ein Jahr: </label>
+            <select id="yearSelect2">
+                <!-- Die Jahre werden dynamisch hinzugefügt -->
+            </select>
+            <label for="dataTypeSelect2">Wählen Sie einen Datentyp: </label>
+            <select id="dataTypeSelect2">
+                <option value="temperatur">Temperatur</option>
+                <option value="niederschlag">Niederschlag</option>
+                <option value="sonnenscheindauer">Sonnenscheindauer</option>
+            </select>
+        </div>
+        <div id="map2"></div>
+        <div class="tooltip" id="tooltip2"></div>
+    </div>
 
-        // Initiale D3 Setup
-        const svg = d3.select("#map").append("svg")
-            .attr("width", width)
-            .attr("height", height);
+    
+<script>
+    const width = 800;
+    const height = 800;
+    const geoJSONFile = "bundeslaender.geo.json";
+    const temperaturFile = "CSVDatenFertig/cleanTemperaturen.csv";
+    const niederschlagFile = "CSVDatenFertig/cleanNiederschlag.csv";
+    const sonnenscheindauerFile = "CSVDatenFertig/cleanSonnenscheinDauer.csv";
 
-        const projection = d3.geoMercator().scale(3000).center([13, 53]);
+
+    // Setup für die Karten
+    function setupMap(mapId, yearSelectId, dataTypeSelectId) {
+        console.log(`Setup für Karte ${mapId}`);
+
+        const svg = d3.select(mapId).append("svg")
+            .attr("viewBox", "0 0 800 800") // ViewBox auf die gleiche Breite und Höhe setzen damit die Karten mit dem Bildschirm skalieren
+            .attr("preserveAspectRatio", "xMidYMid meet");
+
+        const projection = d3.geoMercator().scale(3000).center([12, 53]);
         const path = d3.geoPath().projection(projection);
-        const color = d3.scaleSequential()
-            .domain([6, 11]) // Adjust domain based on your data range
-            .interpolator(d3.interpolateReds);
-        let bundeslaenderData;
-        let temperaturData;
 
-        // CSV Daten laden
-        d3.csv(csvFile).then(data => {
-            console.log("Geladene CSV-Daten:", data);
+        function drawLegend(color, svg){
+            svg.selectAll(".legend").remove();
+            
+            const legend = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform",  'translate(650, 30)');
 
-            // Verarbeite die Temperaturdaten
-            temperaturData = data.map(d => {
-                d.year = +d.Jahr;  // Umwandeln des "Jahr" Wertes in eine Zahl
-                delete d.Jahr; // Entfernen der alten "Jahr" Spalte, da wir jetzt "year" verwenden
-                return d;
-            });
+            const legendScale = d3.scaleLinear()
+                .domain(color.domain())
+                .range([150, 50]);
+    
+            const legendAxis = d3.axisRight(legendScale)
+                .ticks(6);
+            
+            legend.selectAll("rect")
+                .data(d3.range(color.domain()[0], color.domain()[1], (color.domain()[1] - color.domain()[0]) / 10))
+                .enter()
+                .append("rect")
+                .attr("y", d => legendScale(d))
+                .attr("width", 20)
+                .attr("height", 20)
+                .attr("fill", d => color(d));
 
-            console.log("Verarbeitete Temperaturdaten:", temperaturData);
-
-            // Dropdown mit Jahren befüllen
-            const years = [...new Set(temperaturData.map(d => d.year))];
-            console.log("Verfügbare Jahre:", years);
-            const dropdown = d3.select("#yearSelect");
-
-            years.forEach(year => {
-                console.log(`Füge Jahr zum Dropdown hinzu: ${year}`);
-                dropdown.append("option").attr("value", year).text(year);
-            });
-
-            // Event Listener für Dropdown
-            dropdown.on("change", function () {
-                const selectedYear = this.value;
-                console.log(`Ausgewähltes Jahr: ${selectedYear}`);
-                drawMap(selectedYear);
-            });
-
-            // Standardmäßig die Karte für das erste Jahr anzeigen
-            if (years.length > 0) {
-                console.log(`Zeige standardmäßig die Karte für das Jahr: ${years[0]}`);
-                drawMap(years[0]);
-            } else {
-                console.log("Keine Jahre im Dropdown verfügbar.");
-            }
-        });
-
-        // GeoJSON Daten laden und initiale Karte zeichnen
-        d3.json(geoJSONFile)
-            .then(shapes => {
-                bundeslaenderData = shapes;
-                console.log("Geladene GeoJSON-Daten:", bundeslaenderData);
-
-                // Zeichenkarte nur wenn es ein Dropdown gibt
-                const selectedYear = document.getElementById("yearSelect").value;
-                if (selectedYear) {
-                    drawMap(selectedYear);
-                }
-            });
+            legend.append("g")
+                .attr("transform", `translate(20, 20)`)
+                .call(legendAxis);
+        }
 
         // Funktion zum Zeichnen der Karte
-        function drawMap(year) {
-            console.log(`Zeichne Karte für das Jahr: ${year}`);
+        function drawMap(year, dataType, data, geoData, mapId) {
+            console.log(`Zeichne Karte für Jahr: ${year} und Datentyp: ${dataType}`);
 
-            const dataByYear = temperaturData.find(d => d.year == year);
-            const bundeslandToTemp = new Map();
-
-            if (dataByYear) {
-                console.log(`Daten für Jahr ${year} gefunden:`, dataByYear);
-                for (const [key, value] of Object.entries(dataByYear)) {
-                    if (key !== "year") {
-                        bundeslandToTemp.set(key, +value);
-                    }
-                }
-            } else {
-                console.log(`Keine Daten für das Jahr ${year} gefunden.`);
+            let color;
+            if (dataType === 'temperatur') {
+                console.log("Farbskala für Temperatur ausgewählt.");
+                color = d3.scaleSequential(d3.interpolateReds).domain([6, 11]);
+            } else if (dataType === 'niederschlag') {
+                console.log("Farbskala für Niederschlag ausgewählt.");
+                color = d3.scaleSequential(d3.interpolateBlues).domain([400, 1200]);
+            } else if (dataType === 'sonnenscheindauer') {
+                console.log("Farbskala für Sonnenscheindauer ausgewählt.");
+                color = d3.scaleSequential(d3.interpolateYlOrBr).domain([1300, 2200]);
             }
 
-            if (!bundeslaenderData) {
-                console.log('Fehler: Die GeoJSON-Daten sind nicht geladen.');
-                return;
+            const dataByYear = data.find(d => d.year == year);
+            console.log("Daten für das ausgewählte Jahr:", dataByYear);
+
+            const bundeslandToValue = new Map();
+            
+            if (dataByYear) {
+                for (const [key, value] of Object.entries(dataByYear)) {
+                    if (key !== "year") {
+                        bundeslandToValue.set(key, +value);
+                        console.log(`Daten für ${key}: ${value}`);
+                    }
+                }
             }
 
             svg.selectAll("path")
-                .data(bundeslaenderData.features)
+                .data(geoData.features)
                 .join("path")
                 .attr("d", path)
                 .attr("class", "country")
-                .attr("transform", "scale (1.0) translate (0,0)")
                 .attr("fill", d => {
                     const bundeslandName = d.properties.name;
-                    const temp = bundeslandToTemp.get(bundeslandName);
-                    console.log(`Temperatur für ${bundeslandName}: ${temp}`);
-                    //return temp !== undefined ? color(temp) : "#ccc";
-                    return color(temp);
+                    const value = bundeslandToValue.get(bundeslandName);
+                    console.log(`Färbung für ${bundeslandName}: ${value}`);
+                    return value !== undefined ? color(value) : "#ccc";
                 })
-                .append("title")
-                .text(d => `${d.properties.NAME_1}: ${bundeslandToTemp.get(d.properties.NAME_1) || "Keine Daten"}°C`);
-        // Add legend
-        const legend = svg.append("g")
-            .attr("class", "legend")
-            .attr("transform", `translate(${width - 150}, 30)`);
-
-        const legendScale = d3.scaleLinear()
-            .domain(color.domain())
-            .range([150, 50]);
-
-        const legendAxis = d3.axisRight(legendScale)
-            .ticks(6);
-
-        legend.selectAll("rect")
-            .data(d3.range(6, 11)) // Range of temperatures
-            .enter()
-            .append("rect")
-            .attr("y", d => legendScale(d))
-            .attr("width", 20)
-            .attr("height", (20)) // Scale height for each temperature step
-            .attr("fill", d => color(d));
-
-        legend.append("g")
-            .attr("transform", `translate(20, 20)`)
-            .call(legendAxis);
-            
+                .on("mouseover", function(event, d) {
+                    const bundeslandName = d.properties.name;
+                    const value = bundeslandToValue.get(bundeslandName);
+                    
+                    d3.select(this)
+                        .style("stroke", "black")  
+                        .style("stroke-width", ".5");
+                        
+                    // Tooltip anzeigen
+                    d3.select(`#tooltip${mapId === "#map1" ? 1 : 2}`)
+                        .style("left", `${event.pageX + 5}px`)
+                        .style("top", `${event.pageY - 28}px`)
+                        .style("display", "inline-block")
+                        .html(`<strong>${bundeslandName}</strong><br/>Wert: ${value !== undefined ? value : "Keine Daten"}`);
+                    
+                   
+                
+                
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this)
+                        .style("stroke", "none")  // Zurücksetzen des Strokes auf Weiß
+                        
+                    // Tooltip verstecken
+                    d3.select(`#tooltip${mapId === "#map1" ? 1 : 2}`)
+                        .style("display", "none");
+                
+                })
+                
+                
+            drawLegend(color, svg);   
         }
-    </script>
+
+        // Funktion zum Laden der Daten und Zeichnen der Karte
+        function loadDataAndDrawMap(year, dataType, geoData, mapId) {
+            console.log(`Lade Daten für Datentyp: ${dataType}`);
+
+            d3.csv(dataType === 'temperatur' ? temperaturFile :
+                   dataType === 'niederschlag' ? niederschlagFile :
+                   sonnenscheindauerFile).then(data => {
+                console.log("Geladene CSV-Daten:", data);
+
+                data = data.map(d => {
+                    d.year = +d.Jahr;
+                    delete d.Jahr;
+                    return d;
+                });
+                console.log("Verarbeitete Daten:", data);
+
+                const years = [...new Set(data.map(d => d.year))];
+                console.log("Verfügbare Jahre:", years);
+
+                const yearSelect = d3.select(yearSelectId);
+                if (yearSelect.selectAll('option').empty()) {
+                    years.forEach(year => {
+                        yearSelect.append("option").attr("value", year).text(year);
+                        console.log(`Jahr hinzugefügt: ${year}`);
+                    });
+                }
+
+                drawMap(year, dataType, data, geoData, mapId);
+            });
+        }
+
+        // GeoJSON Daten laden
+        d3.json(geoJSONFile).then(geoData => {
+            console.log("Geladene GeoJSON-Daten:", geoData);
+
+            const yearSelect = d3.select(yearSelectId);
+            const dataTypeSelect = d3.select(dataTypeSelectId);
+
+            // Initiale Zeichnung
+            loadDataAndDrawMap(1981,"temperatur", geoData, mapId);
+
+            // Event-Handler für Änderungen
+            yearSelect.on("change", function () {
+                console.log(`Ausgewähltes Jahr geändert zu: ${this.value}`);
+                loadDataAndDrawMap(this.value, dataTypeSelect.node().value, geoData, mapId);
+            });
+
+            dataTypeSelect.on("change", function () {
+                console.log(`Ausgewählter Datentyp geändert zu: ${this.value}`);
+                loadDataAndDrawMap(yearSelect.node().value, this.value, geoData, mapId);
+            });
+        });
+    }
+
+    setupMap("#map1", "#yearSelect1", "#dataTypeSelect1");
+    setupMap("#map2", "#yearSelect2", "#dataTypeSelect2");
+</script>
+
 </body>
 </html>

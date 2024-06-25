@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wetterdatenvisualisierung</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            color: #4a4e69;
+        }
+        .map-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        .map {
+            width: 45%;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            visibility: hidden;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const weatherDataUrl = 'weather_data.json'; // Pfad zur Wetterdaten-GeoJSON-Datei
+            const geoDataUrl = 'bundeslaender.geojson'; // Pfad zur GeoJSON-Datei der Bundesländer
+
+            // Laden der JSON-Daten
+            Promise.all([
+                d3.json(weatherDataUrl),
+                d3.json(geoDataUrl)
+            ]).then(function([weatherData, geoData]) {
+                // Erstellen der Karten für die Jahre 2023 und 2000
+                createChoropleth(weatherData, geoData, 'Temperature', 2023, 'choropleth_2023');
+                createChoropleth(weatherData, geoData, 'Temperature', 2000, 'choropleth_2000');
+            });
+
+            function createChoropleth(data, geoData, attribute, year, elementId) {
+                const filteredData = data.features.filter(d => d.properties.year == year && d.properties.attribute == attribute);
+                const width = 800, height = 600;
+                const svg = d3.select(`#${elementId}`).append('svg')
+                    .attr('width', width)
+                    .attr('height', height);
+
+                const projection = d3.geoMercator().fitSize([width, height], geoData);
+                const path = d3.geoPath().projection(projection);
+                const colorScale = d3.scaleSequential(d3.interpolateYlOrRd)
+                    .domain(d3.extent(filteredData, d => +d.properties.value));
+
+                svg.selectAll('path')
+                    .data(geoData.features)
+                    .enter().append('path')
+                    .attr('d', path)
+                    .attr('fill', d => {
+                        const stateData = filteredData.find(e => e.properties.state === d.properties.name);
+                        return stateData ? colorScale(+stateData.properties.value) : '#ccc';
+                    })
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 0.5)
+                    .on('mouseover', function(event, d) {
+                        const stateData = filteredData.find(e => e.properties.state === d.properties.name);
+                        d3.select('#tooltip')
+                            .style('visibility', 'visible')
+                            .html(`${d.properties.name}: ${stateData ? stateData.properties.value : 'Keine Daten'}`);
+                    })
+                    .on('mousemove', function(event) {
+                        d3.select('#tooltip')
+                            .style('top', (event.pageY - 10) + 'px')
+                            .style('left', (event.pageX + 10) + 'px');
+                    })
+                    .on('mouseout', function() {
+                        d3.select('#tooltip').style('visibility', 'hidden');
+                    });
+
+                const legendWidth = 300;
+                const legendHeight = 10;
+                const legendSvg = svg.append('g')
+                    .attr('transform', `translate(${width - legendWidth - 20}, ${height - 30})`);
+
+                const gradient = legendSvg.append('defs').append('linearGradient')
+                    .attr('id', 'gradient')
+                    .attr('x1', '0%')
+                    .attr('x2', '100%')
+                    .attr('y1', '0%')
+                    .attr('y2', '0%');
+
+                gradient.append('stop')
+                    .attr('offset', '0%')
+                    .attr('stop-color', d3.interpolateYlOrRd(0));
+                gradient.append('stop')
+                    .attr('offset', '100%')
+                    .attr('stop-color', d3.interpolateYlOrRd(1));
+
+                legendSvg.append('rect')
+                    .attr('width', legendWidth)
+                    .attr('height', legendHeight)
+                    .style('fill', 'url(#gradient)');
+
+                const legendScale = d3.scaleLinear()
+                    .domain(colorScale.domain())
+                    .range([0, legendWidth]);
+
+                const legendAxis = d3.axisBottom(legendScale)
+                    .ticks(5)
+                    .tickSize(legendHeight);
+
+                legendSvg.append('g')
+                    .attr('transform', `translate(0, ${legendHeight})`)
+                    .call(legendAxis)
+                    .select('.domain').remove();
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Wetterdatenvisualisierung</h1>
+        <div class="map-container">
+            <div id="choropleth_2023" class="map"></div>
+            <div id="choropleth_2000" class="map"></div>
+        </div>
+    </div>
+    <div id="tooltip"></div>
+</body>
+</html>
